@@ -253,9 +253,28 @@ legend{font-family:var(--display);font-weight:600;font-size:17px;padding:0 6px}
   -webkit-appearance:none;
   appearance:none;
   text-align:left;
+  display:flex;
+  align-items:center;
 }
 .f #i_date::-webkit-date-and-time-value{
   min-width:0;
   margin:0;
+  height:100%;
+  display:flex;
+  align-items:center;
   text-align:left;
+}
+.f #i_date::-webkit-datetime-edit{
+  display:flex;
+  align-items:center;
+  min-height:46px;
+  padding:0;
+}
+.f #i_date::-webkit-datetime-edit-fields-wrapper{
+  display:flex;
+  align-items:center;
+  min-height:46px;
+}
+.f #i_date::-webkit-calendar-picker-indicator{
+  margin-left:auto;
 }
