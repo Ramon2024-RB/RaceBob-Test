@@ -169,7 +169,7 @@ async function initSync(){
 }
 
 /* ================= derived data ================= */
-const bikeName = id => (byId(S.bikes,id)||{}).name || "–";
+const bikeName = id => (byId(S.bikes,id)||{}).name || (id?"Motorrad nicht mehr vorhanden":"Noch kein Motorrad zugewiesen");
 const WD=["So","Mo","Di","Mi","Do","Fr","Sa"];
 const evDays = d => Math.max(1, parseInt(d.dayCount)||1);
 function dayDate(d,k){ if(!d.date) return ""; const x=new Date(d.date+"T12:00:00"); x.setDate(x.getDate()+k-1); return new Date(x.getTime()-x.getTimezoneOffset()*60000).toISOString().slice(0,10); }
@@ -226,7 +226,7 @@ function dayItem(d){
     <div class="num" style="font-size:20px">${best!=null?fmtLap(best):""}</div></button>`;
 }
 function vHome(){
-  if(!S.bikes.length) return {title:"RaceBob", html:`<div class="card hero"><div class="eyebrow">Willkommen</div><div class="hero-t">Los geht's mit deinem Bike</div><div class="muted small" style="margin:6px 0 12px">Leg zuerst dein Motorrad mit Federbein, Gabel und Grundabstimmung an. Danach trägst du Events und Stints ein, und hier siehst du alles Wichtige auf einen Blick.</div><button type="button" class="btn pri big" data-act="new-bike">Motorrad anlegen</button></div>`};
+  if(!S.bikes.length && !S.days.length) return {title:"RaceBob", html:`<div class="card hero"><div class="eyebrow">Willkommen</div><div class="hero-t">Los geht's mit RaceBob</div><div class="muted small" style="margin:6px 0 12px">Plane dein nächstes Event oder leg dein Motorrad mit Federbein, Gabel und Grundabstimmung an. Ein Motorrad kannst du auch später zuweisen.</div><button type="button" class="btn pri big" data-act="new-day">+ Neues Event</button><button type="button" class="btn" style="width:100%;margin-top:8px" data-act="new-bike">Motorrad anlegen</button></div>`};
   const t=today(); const ds=daysSorted();
   const active=ds.find(d=>d.date&&d.date<=t&&dayDate(d,evDays(d))>=t);
   const upcoming=S.days.filter(d=>d.date&&d.date>t).sort((a,b)=>a.date.localeCompare(b.date))[0];
@@ -240,8 +240,8 @@ function vHome(){
     h+=`<div class="card hero live"><div class="row between"><span class="eyebrow"><span class="pulse"></span>Läuft gerade</span><span class="chip">${evDays(active)>1?`Tag ${k} von ${evDays(active)}`:"Heute"}</span></div>
       <div class="hero-t">${esc(eventName(active))}</div><div class="muted small">${esc([active.title?active.track:"",bikeName(active.bikeId)].filter(Boolean).join(" · "))}</div>
       <div class="hero-stats"><div><b>${todayIdx.length}</b><span>Stints heute</span></div><div><b>${best!=null?fmtLap(best):"–"}</b><span>Beste heute</span></div></div>
-      <button type="button" class="btn pri big" data-act="new-stint" data-id="${active.id}">+ Stint eintragen</button>
-      <button type="button" class="btn" style="width:100%;margin-top:8px" data-act="open-day" data-id="${active.id}">Event öffnen</button></div>`;
+      ${byId(S.bikes,active.bikeId)?`<button type="button" class="btn pri big" data-act="new-stint" data-id="${active.id}">+ Stint eintragen</button>`:`<button type="button" class="btn pri big" data-act="open-day" data-id="${active.id}">Event ansehen</button>`}
+      ${byId(S.bikes,active.bikeId)?`<button type="button" class="btn" style="width:100%;margin-top:8px" data-act="open-day" data-id="${active.id}">Event öffnen</button>`:""}</div>`;
   } else if(upcoming){
     const n=Math.round((new Date(upcoming.date+"T12:00:00")-new Date(t+"T12:00:00"))/864e5);
     const pk=S.pack.length, pd=S.pack.filter(p=>p.done).length;
@@ -255,7 +255,8 @@ function vHome(){
   }
   // ---- bike cockpit
   const mainBike = byId(S.bikes,(active||upcoming||last||{}).bikeId) || S.bikes[0];
-  const bikes=[mainBike].concat(S.bikes.filter(b=>b!==mainBike));
+  const bikes=[mainBike].concat(S.bikes.filter(b=>b!==mainBike)).filter(Boolean);
+  if(!bikes.length) h+=`<div class="card"><div class="eyebrow">Deine Garage</div><div class="muted small" style="margin:6px 0 10px">Noch kein Motorrad angelegt. Deine Events kannst du schon planen.</div><button type="button" class="btn" data-act="new-bike">+ Motorrad anlegen</button></div>`;
   bikes.forEach(b=>{
     const s=currentSetup(b.id); const fs=bikeFields(b); const has=k=>fs.some(x=>x.k===k);
     const v=k=>(s[k]!=null&&s[k]!=="")?esc(s[k]):'<span class="muted">–</span>';
@@ -337,14 +338,19 @@ function vDay(id){
     <div><span>Fahrer</span><b>${esc(d.rider||"–")}</b></div><div><span>Beste Runde</span><b>${fmtLap(best)}</b></div>
     <div><span>Luft</span><b>${d.air?esc(d.air)+" °C":"–"}</b></div><div><span>Asphalt</span><b>${d.trackTemp?esc(d.trackTemp)+" °C":"–"}</b></div>
   </div></div>`;
-  h+=`<div class="row between"><h2>Setup vor Start</h2><button type="button" class="btn sm" data-act="edit-start" data-id="${id}">Bearbeiten</button></div><div class="card">${setupCard(b,d.start||{})}${sagTable(b,sagAt(b,d.date))}</div>`;
+  if(b) h+=`<div class="row between"><h2>Setup vor Start</h2><button type="button" class="btn sm" data-act="edit-start" data-id="${id}">Bearbeiten</button></div><div class="card">${setupCard(b,d.start||{})}${sagTable(b,sagAt(b,d.date))}</div>`;
+  else {
+    const hasStints=(d.stints||[]).length>0;
+    h+=`<div class="card"><div style="font-weight:600">${d.bikeId?"Motorrad nicht mehr vorhanden":"Noch kein Motorrad zugewiesen"}</div><div class="muted small" style="margin:6px 0 10px">${hasStints?"Die bisherigen Stints bleiben erhalten. Ohne zugeordnetes Motorrad können keine weiteren Setup-Daten oder Stints erfasst werden.":"Du kannst dein Event bereits planen. Weise ein Motorrad zu, sobald du dein Setup oder Stints erfassen möchtest."}</div>${!hasStints?(S.bikes.length?`<button type="button" class="btn pri" data-act="edit-day" data-id="${id}">Motorrad zuweisen</button>`:`<button type="button" class="btn" data-act="new-bike">+ Motorrad anlegen</button>`):""}</div>`;
+    if(Object.keys(d.start||{}).length) h+=`<h2>Gespeichertes Start-Setup</h2><div class="card">${setupCard(null,d.start||{})}</div>`;
+  }
   const st=d.stints||[];
   const multi=evDays(d)>1;
   st.forEach((s,i)=>{
     const prev=setupAt(d,i); const lap=lapSec(s.lap), ideal=lapSec(s.ideal);
     if(multi && (i===0 || (st[i-1].day||1)!==(s.day||1))){ const dd=dayDate(d,s.day||1); h+=`<div class="row" style="gap:8px;margin-top:8px"><span class="badge" style="height:34px;font-size:16px">Tag ${s.day||1}</span><span style="font-weight:600">${wd(dd)}, ${fmtDate(dd)}</span></div>`; }
     const lbl=multi?stintLabel(d,i).split(" · ")[1]:stintLabel(d,i);
-    h+=`<div class="row between"><h2>${lbl}</h2><button type="button" class="btn sm" data-act="edit-stint" data-day="${id}" data-i="${i}">Bearbeiten</button></div>
+    h+=`<div class="row between"><h2>${lbl}</h2>${b?`<button type="button" class="btn sm" data-act="edit-stint" data-day="${id}" data-i="${i}">Bearbeiten</button>`:""}</div>
     <div class="card"><div class="sec">Änderung vor ${lbl}</div>${changeChips(b,prev,s.changes)}
     <div class="kv" style="margin-top:12px">
       <div><span>Rundenzeit</span><b>${fmtLap(lap)}</b></div><div><span>Idealzeit</span><b>${fmtLap(ideal)}</b></div>${s.laps?`<div><span>Runden</span><b>${esc(s.laps)}</b></div>`:""}
@@ -360,7 +366,7 @@ function vDay(id){
     ${s.feeling?`<div class="sec">Feeling</div><div class="note">${esc(s.feeling)}</div>`:""}
     ${s.desc?`<div class="sec">Beschreibung</div><div class="note">${esc(s.desc)}</div>`:""}${cornerChips(d,s)}</div>`;
   });
-  h+=`<button type="button" class="btn pri big" data-act="new-stint" data-id="${id}">+ Stint eintragen</button>`;
+  if(b) h+=`<button type="button" class="btn pri big" data-act="new-stint" data-id="${id}">+ Stint eintragen</button>`;
   h+=`<h2>Endergebnis</h2><div class="card note">${d.result?esc(d.result):'<span class="muted">Noch nichts eingetragen.</span>'}</div>`;
   const trk=dayTrack(d);
   h+=`<div class="row">${trk?`<button type="button" class="btn" data-act="open-track" data-id="${trk.id}">Strecke & Kurven</button>`:""}<button type="button" class="btn" data-act="edit-day" data-id="${id}">Event bearbeiten</button><button type="button" class="btn danger" data-act="del-day" data-id="${id}">Löschen</button></div>`;
@@ -909,45 +915,73 @@ function baseForm(b){
 }
 function dayForm(d){
   const isNew=!d;
-  if(isNew && !S.bikes.length) return bikeForm();
   const last=daysSorted()[0];
-  d=d||{date:today(), bikeId:(last&&last.bikeId)||S.bikes[0].id, rider:(last&&last.rider)||"", track:""};
+  d=d||{date:today(), bikeId:"", rider:(last&&last.rider)||"", track:""};
+  const oldBikeId=d.bikeId||"";
+  const locked=!isNew && (d.stints||[]).length>0;
+  const options=locked?[[oldBikeId,bikeName(oldBikeId)]]:[
+    ["","Noch nicht zugewiesen"],
+    ...S.bikes.map(b=>[b.id,b.name]),
+    ...(oldBikeId&&!byId(S.bikes,oldBikeId)?[[oldBikeId,bikeName(oldBikeId)]]:[])
+  ];
   openSheet(isNew?"Neues Event":"Event bearbeiten", `
     ${inp("title","Name des Events (optional)",d.title||"",'placeholder="z. B. Trainingscamp Rijeka" autocomplete="off"')}
     <div class="grid2">${inp("date","Erster Tag",d.date||"",'type="date"')}${sel("dayCount","Dauer",evDays(d),[1,2,3,4,5,6,7].map(n=>[n,n===1?"1 Tag":n+" Tage"]))}</div>
     <div class="hint" id="rangeHint" style="margin-top:-6px"></div>
-    ${sel("bikeId","Bike",d.bikeId,S.bikes.map(b=>[b.id,b.name]))}
+    ${sel("bikeId","Motorrad (optional)",oldBikeId,options)}
+    <div class="hint">${locked?"Bei einem Event mit erfassten Stints bleibt die Motorradzuordnung fest, damit Setup und Rundenzeiten korrekt zugeordnet bleiben.":"Du kannst das Motorrad später zuweisen."}</div>
     <div class="grid2">${sel("trackId","Strecke",d.trackId||(d.track&&!d.trackId?"__new":(S.tracks.length?"":"__new")),[["","– Strecke wählen –"],...S.tracks.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(t=>[t.id,t.name]),["__new","+ Neue Strecke"]])}${inp("rider","Fahrer",d.rider||"",'list="riderList" autocomplete="off"')}</div>
     <div id="newTrackSlot">${inp("track","Name der neuen Strecke",d.trackId?"":(d.track||""),'placeholder="z. B. Rijeka" autocomplete="off"')}</div>
     <datalist id="riderList">${ridersKnown().map(t=>`<option value="${esc(t)}">`).join("")}</datalist>
     <div class="grid2">${inp("air","Lufttemperatur °C",d.air||"",'inputmode="decimal"')}${inp("trackTemp","Asphalttemperatur °C",d.trackTemp||"",'inputmode="decimal"')}</div>
-    ${isNew?`<div id="startSlot"></div>`:area("result","Endergebnis",d.result,"z. B. Rennen P4, 1:34.8")}`,
+    ${isNew?`<div id="startSlot"></div>`:`<div id="assignmentHint" class="hint" hidden></div>${area("result","Endergebnis",d.result,"z. B. Rennen P4, 1:34.8")}`}`,
   fd=>{
-    if(!fd.bikeId) return formErr("Bitte wähle ein Bike.");
+    const bid=fd.bikeId||"";
+    const bike=byId(S.bikes,bid);
+    if(locked && bid!==oldBikeId) return formErr("Die Motorradzuordnung kann nach dem ersten Stint nicht geändert werden.");
+    if(bid && !bike && bid!==oldBikeId) return formErr("Dieses Motorrad ist nicht mehr vorhanden.");
     let trackId=fd.trackId, track="";
     if(trackId==="__new"){ if(!fd.track) return formErr("Bitte gib den Namen der neuen Strecke ein."); const ex=S.tracks.find(t=>t.name.trim().toLowerCase()===fd.track.trim().toLowerCase());
       if(ex) trackId=ex.id; else { const rec={id:uid(),name:fd.track,corners:[],hasImg:false}; S.tracks.push(rec); changed("tracks"); trackId=rec.id; } }
     const trk=byId(S.tracks,trackId); track=trk?trk.name:"";
     const dc=parseInt(fd.dayCount)||1;
     if(!isNew && (d.stints||[]).some(x=>(x.day||1)>dc)) return formErr(`Es gibt Stints an Tag ${Math.max(...d.stints.map(x=>x.day||1))}. Lösch sie zuerst oder wähle eine längere Dauer.`);
-    const vals={title:fd.title,date:fd.date,dayCount:dc,bikeId:fd.bikeId,trackId:trk?trk.id:"",track,rider:fd.rider,air:fd.air,trackTemp:fd.trackTemp};
-    if(isNew){ const b=byId(S.bikes,fd.bikeId); const rec={id:uid(),created:Date.now(),...vals,start:readSetup(b,fd),stints:[],result:""}; S.days.push(rec); dayChanged(rec.id); ui.tab="days"; ui.stack=[{v:"day",id:rec.id}]; render(); }
-    else { Object.assign(d,vals,{result:fd.result}); dayChanged(d.id); }
+    const vals={title:fd.title,date:fd.date,dayCount:dc,bikeId:bid,trackId:trk?trk.id:"",track,rider:fd.rider,air:fd.air,trackTemp:fd.trackTemp};
+    if(isNew){ const rec={id:uid(),created:Date.now(),...vals,start:bike?readSetup(bike,fd):{},stints:[],result:""}; S.days.push(rec); dayChanged(rec.id); ui.tab="days"; ui.stack=[{v:"day",id:rec.id}]; render(); }
+    else {
+      // A new assignment must not inherit the setup of another bike.
+      if(bid!==oldBikeId) d.start=bike?currentSetup(bid):{};
+      Object.assign(d,vals,{result:fd.result}); dayChanged(d.id);
+    }
   }, {onChange:t=>{
     if(!t||t.name==="trackId"){ $("#newTrackSlot").hidden=$("#i_trackId").value!=="__new"; }
     if(!t||t.name==="dayCount"||t.name==="date"){ const tmp={date:$("#i_date").value,dayCount:$("#i_dayCount").value}; $("#rangeHint").textContent=evDays(tmp)>1&&tmp.date?`${wd(tmp.date)} ${fmtDate(tmp.date)} bis ${wd(dayDate(tmp,evDays(tmp)))} ${fmtDate(dayDate(tmp,evDays(tmp)))}`:""; }
-    if(!isNew) return;
-    if(!t||t.name==="bikeId"){ const b=byId(S.bikes,$("#i_bikeId").value); const cur=currentSetup(b.id);
+    if(!isNew){
+      if(!t||t.name==="bikeId"){
+        const hint=$("#assignmentHint"), bid=$("#i_bikeId").value;
+        hint.hidden=bid===oldBikeId;
+        hint.textContent=bid?"Beim Speichern wird das bisherige Setup durch das zuletzt gespeicherte Setup des gewählten Motorrads ersetzt.":"Beim Speichern wird die Zuordnung aufgehoben und das bisherige Start-Setup entfernt.";
+      }
+      return;
+    }
+    if(!t||t.name==="bikeId"){ const b=byId(S.bikes,$("#i_bikeId").value);
+      if(!b){ $("#startSlot").innerHTML=`<div class="muted small">Setup und Stints stehen zur Verfügung, sobald du ein Motorrad zugewiesen hast.</div>`; return; }
+      const cur=currentSetup(b.id);
       $("#startSlot").innerHTML=`<div class="sec">Setup vor Start</div><div class="muted small">Übernommen vom letzten Setup dieses Bikes. Nur ändern, was du vor dem ersten Stint umgestellt hast.</div>${setupFields(b,cur,cur)}`; }
     if(t&&t.dataset.live) t.classList.toggle("was", t.dataset.prev!==t.value);
   }});
 }
 function startForm(d){
+  if(!d) return;
   const b=byId(S.bikes,d.bikeId);
+  if(!b) return dayForm(d);
   openSheet("Setup vor Start", setupFields(b,d.start||{}), fd=>{ d.start=readSetup(b,fd); dayChanged(d.id); });
 }
 function stintForm(d, i){
-  const isNew=i==null; const b=byId(S.bikes,d.bikeId); const st=isNew?{}:d.stints[i]; const idx=isNew?(d.stints||[]).length:i;
+  if(!d) return;
+  const b=byId(S.bikes,d.bikeId);
+  if(!b) return dayForm(d);
+  const isNew=i==null; const st=isNew?{}:d.stints[i]; const idx=isNew?(d.stints||[]).length:i;
   const prev=setupAt(d,idx); const vals=Object.assign({},prev,st.changes||{});
   const prevSt=idx>0?d.stints[idx-1]:null; const n=evDays(d);
   let defDay=st.day||1;

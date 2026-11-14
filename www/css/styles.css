@@ -233,3 +233,29 @@ legend{font-family:var(--display);font-weight:600;font-size:17px;padding:0 6px}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 @media (max-width:380px){.grid3{grid-template-columns:1fr 1fr}.stat .v{font-size:24px}.dynrow{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* Event date and duration: contain native iOS date control and align both fields. */
+.grid2:has(> .f > #i_dayCount){
+  grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr);
+  align-items:start;
+}
+.f #i_date,.f #i_dayCount{
+  display:block;
+  width:100%;
+  min-width:0;
+  max-width:100%;
+  height:46px;
+  min-height:46px;
+  padding:0 10px;
+  line-height:normal;
+}
+.f #i_date{
+  -webkit-appearance:none;
+  appearance:none;
+  text-align:left;
+}
+.f #i_date::-webkit-date-and-time-value{
+  min-width:0;
+  margin:0;
+  text-align:left;
+}
