@@ -1,0 +1,25 @@
+# Installierte Abhängigkeiten
+node_modules/
+
+# Editor und System
+.DS_Store
+*.log
+npm-debug.log*
+
+# Temporäre und generierte Dateien
+.cache/
+dist/
+
+# Native iOS-Ausgaben (Projekt ios/ wird nach npm run ios:init angelegt)
+ios/DerivedData/
+ios/build/
+*.xcuserstate
+xcuserdata/
+
+node_modules/
+.DS_Store
+DerivedData/
+xcuserdata/
+*.ipa
+*.xcarchive/
+.env

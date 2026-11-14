@@ -1,0 +1,8 @@
+{
+  "appId": "de.racebob.app",
+  "appName": "RaceBob",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "never"
+  }
+}
